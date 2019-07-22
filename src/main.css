@@ -1,0 +1,30 @@
+svg * {
+  /*outline: 1px solid pink;*/
+}
+
+body {
+  font-family: 'Source Sans Pro', 'Trebuchet MS', 'Lucida Grande', 'Bitstream Vera Sans', 'Helvetica Neue', sans-serif;
+  font-size: 30px;
+  margin: 0;
+  text-align: center;
+  color: #293c4b;
+  background-color: black;
+}
+
+svg {
+  border: 10px solid #EEE;
+}
+
+.instructions {
+  color: #555;
+  font-size: 1.5rem;
+  margin: 30px
+}
+
+.ghost {
+  fill: pink;
+}
+
+.dullard {
+  fill: aqua;
+}
