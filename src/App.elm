@@ -29,7 +29,7 @@ boost : Float
 boost =
     0.15
 
-
+boundary : { left : Float, right : Float, top : Float, bottom : Float }
 boundary =
     { top = 5
     , bottom = 295
@@ -109,18 +109,21 @@ columns rows =
     in
         List.map biggify (List.range 1 rows)
 
-initializeDullard : Float -> Float -> Creature
-initializeDullard radius i =
+initializeDullard : Float -> Float -> Float -> Creature
+initializeDullard count shift i =
     let
-        velocityFactor = -0.001
-        densityFactor = 100
+        amplitude = 10
+        velocityFactor = -0.000
+        densityFactor = 50
         tau = Basics.pi * 2
-        unit = tau / densityFactor 
-        theta = i * unit
-        x = Basics.sin theta * radius + boundary.right / 2 
-        y = Basics.cos theta * radius + boundary.bottom / 2 
-        vx = Basics.sin theta * velocityFactor
-        vy = Basics.cos theta * velocityFactor
+        unitX = boundary.right / count
+        unitY = tau / densityFactor 
+        theta = i * unitY
+        x = i * unitX 
+        y = Basics.cos theta * amplitude + boundary.bottom / 2
+        vx = 0
+        centerY = boundary.bottom / 2
+        vy = 0
     in
         Creature x y vx vy 0 Dullard initialPath
 
@@ -128,18 +131,14 @@ initializeDullard radius i =
 dullards : List Creature
 dullards =
     let 
-        count = 100
+        count = 40
         range = List.map toFloat (List.range 0 (count - 1))      
     in
-        List.concat
-            [   (List.map (initializeDullard 50) range) 
-            ,   (List.map (initializeDullard 120) range)
-            ,   (List.map (initializeDullard 130) range)
-            ,   (List.map (initializeDullard 160) range)
-            ,   (List.map (initializeDullard 200) range)
-            ,   (List.map (initializeDullard 210) range)
-            ,   (List.map (initializeDullard 220) range)
-            ]
+        List.concat[
+            -- List.map (initializeDullard count 0) range,
+            -- List.map (initializeDullard count -75) range,
+            List.map (initializeDullard count 0) range
+        ]
 
 type Msg
     = KeyMsg Keyboard.KeyCode
@@ -223,7 +222,8 @@ update msg model =
                 dullards =
                     model.dullards
                         |> List.map (obscure model.ghost model.firefly)
-                        |> List.map (dullardCollisionCheck model.ghost)
+                        -- |> List.map (dullardCollisionCheck model.ghost)
+                        |> List.map (updateVy dt)
                         |> List.map (updateX dt)
                         |> List.map (updateY dt)
 
@@ -355,6 +355,16 @@ isAbove p1 p2 =
     p1.y < p2.y
 
 
+updateVy dt creature =
+    let
+        y = creature.y
+        vy = creature.vy
+        centerLineY = 200
+        acceleration = -0.00005 * (y - centerLineY)
+    in
+    
+    { creature | vy = acceleration * dt + vy}
+
 updateX dt ghost =
     { ghost | x = ghost.x + ghost.vx * dt }
 
@@ -440,7 +450,7 @@ view model =
             , div [] [ Html.button [ onClick ClickSave ] [ Html.text "Save" ] ]
             ]
 
-
+viewCreature : Creature -> Svg msg
 viewCreature creature =
     let
         o =
