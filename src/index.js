@@ -1,7 +1,9 @@
-require('./main.css')
+import './main.css';
+import { Elm } from './Main.elm';
+
 var config = require('./config.js')
-var Elm = require('./Main.elm')
 
-var root = document.getElementById('root')
-
-Elm.Main.embed(root, config.serverUrl)
+Elm.Main.init({
+  node: document.getElementById('root'),
+  flags: config.serverUrl
+});
