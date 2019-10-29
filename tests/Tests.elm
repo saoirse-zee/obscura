@@ -2,23 +2,21 @@ module Tests exposing (..)
 
 import Test exposing (..)
 import Expect
-import String
-import App
+
+
+-- Check out https://package.elm-lang.org/packages/elm-explorations/test/latest to learn more about testing in Elm!
 
 
 all : Test
 all =
     describe "A Test Suite"
-        [ test "App.model.message should be set properly" <|
-            \() ->
-                Expect.equal (Tuple.first App.init |> .message) "Your Elm App is working!"
-        , test "Addition" <|
-            \() ->
-                Expect.equal (3 + 7) 10
+        [ test "Addition" <|
+            \_ ->
+                Expect.equal 10 (3 + 7)
         , test "String.left" <|
-            \() ->
+            \_ ->
                 Expect.equal "a" (String.left 1 "abcdefg")
         , test "This test should fail" <|
-            \() ->
+            \_ ->
                 Expect.fail "failed as expected!"
         ]

@@ -1,5 +1,6 @@
 module App exposing (..)
 
+import Browser.Events exposing (onKeyDown, onAnimationFrameDelta)
 import Html exposing (Html, text, div, img)
 import Html.Events exposing (onClick)
 import Http
@@ -7,10 +8,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import Keyboard
 import Char
-import AnimationFrame exposing (diffs)
-import Time exposing (Time)
 
 
 -- Higher -> more friction, slower movement
@@ -42,7 +40,7 @@ type alias Model =
     { ghost : Creature
     , dullards : List Creature
     , firefly : Creature
-    , dropTime : Time
+    , dropTime : Float
     , serverUrl : String
     }
 
@@ -73,11 +71,11 @@ type alias Point =
     , y : Float
     }
 
-origin = 
+globalOrigin = 
     Point 0 0 
 
 initialPath =
-    [origin]
+    [globalOrigin]
 
 init : String -> ( Model, Cmd Msg )
 init serverUrl =
@@ -90,7 +88,7 @@ init serverUrl =
             , creatureType = Ghost
             , path = [Point 300 300]
             }
-      , dullards = dullards
+      , dullards = initialDullards
       , firefly = Creature 0 0 0 0 0 Firefly initialPath
       , dropTime = 0
       , serverUrl = serverUrl
@@ -125,8 +123,8 @@ initializeDullard radius i =
         Creature x y vx vy 0 Dullard initialPath
 
 
-dullards : List Creature
-dullards =
+initialDullards : List Creature
+initialDullards =
     let 
         count = 100
         range = List.map toFloat (List.range 0 (count - 1))      
@@ -142,8 +140,8 @@ dullards =
             ]
 
 type Msg
-    = KeyMsg Keyboard.KeyCode
-    | Tick Time
+    = KeyMsg Direction
+    | Tick Float
     | ClickSave
     | HandleSaveResponse (Result Http.Error String)
 
@@ -160,8 +158,8 @@ update msg model =
         ClickSave ->
             ( model, save model )
 
-        KeyMsg keycode ->
-            case getDirection keycode of
+        KeyMsg direction ->
+            case direction of
                 Left ->
                     ( { model
                         | ghost = moveLeft model.ghost
@@ -240,7 +238,7 @@ update msg model =
                 )
 
 
-updatePowerLevel : Time -> Creature -> Creature
+updatePowerLevel : Float -> Creature -> Creature
 updatePowerLevel dropTime hero =
     let
         obscurity =
@@ -379,24 +377,21 @@ type Direction
     | None
 
 
-getDirection : Keyboard.KeyCode -> Direction
-getDirection keycode =
+decodeDirection : Decode.Decoder Direction
+decodeDirection =
     let
-        key =
-            Char.fromCode keycode
+        toDirection : String -> Direction
+        toDirection string =
+            case string of
+                "a" -> Left
+                "s" -> Down
+                "d" -> Right
+                "w" -> Up
+                "j" -> DropFirefly
+                _   -> None
     in
-        if key == 'A' then
-            Left
-        else if key == 'S' then
-            Down
-        else if key == 'D' then
-            Right
-        else if key == 'W' then
-            Up
-        else if key == 'J' then
-            DropFirefly
-        else
-            None
+        Decode.field "key" Decode.string
+            |> Decode.map toDirection
 
 
 moveLeft : Creature -> Creature
@@ -450,20 +445,20 @@ viewCreature creature =
             getSize creature
     in
         circle
-            [ cx (toString creature.x)
-            , cy (toString creature.y)
-            , r (toString size)
+            [ cx (String.fromFloat creature.x)
+            , cy (String.fromFloat creature.y)
+            , r (String.fromInt size)
             , class (getCreatureClass creature)  
-            , opacity (toString o)
+            , opacity (String.fromFloat o)
             ]
             []
 
 viewPathPoint : Point -> Svg msg
 viewPathPoint point =
         circle
-            [ cx (toString point.x)
-            , cy (toString point.y)
-            , r (toString 1)
+            [ cx (String.fromFloat point.x)
+            , cy (String.fromFloat point.y)
+            , r (String.fromInt 1)
             , fill "white"
             ]
             []
@@ -483,7 +478,7 @@ viewPath path =
             [ fill "none"
             , stroke "white"
             , points pts
-            , opacity (toString o)
+            , opacity (String.fromFloat o)
             ] []
 
 pathToString : List Point -> String
@@ -495,14 +490,14 @@ pathToString path =
 
 pointToString : Point -> String
 pointToString point =
-    toString(point.x) ++ "," ++ toString(point.y) ++ " "
+    String.fromFloat point.x ++ "," ++ String.fromFloat point.y ++ " "
 
 viewLine : Point -> Point -> Svg msg
 viewLine p1 p2 = 
-  line [ x1 (toString p1.x)
-       , y1 (toString p1.y)
-       , x2 (toString p2.x)
-       , y2 (toString p2.y)
+  line [ x1 (String.fromFloat p1.x)
+       , y1 (String.fromFloat p1.y)
+       , x2 (String.fromFloat p2.x)
+       , y2 (String.fromFloat p2.y)
        , stroke "pink"
        ]
        []
@@ -530,22 +525,17 @@ getSize creature =
 save : Model -> Cmd Msg
 save state =
     let
-        url =
-            state.serverUrl ++ "/save"
-
         ghost =
             Encode.object
                 [ ( "x", Encode.float state.ghost.x )
                 , ( "y", Encode.float state.ghost.y )
                 ]
-
-        body =
-            Http.jsonBody ghost
-
-        request =
-            Http.post url body decodeSaveResult
     in
-        Http.send HandleSaveResponse request
+        Http.post
+          { url = state.serverUrl ++ "/save"
+          , body = Http.jsonBody ghost
+          , expect = Http.expectJson HandleSaveResponse decodeSaveResult
+          }
 
 
 decodeSaveResult : Decode.Decoder String
@@ -556,6 +546,6 @@ decodeSaveResult =
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Keyboard.downs KeyMsg
-        , diffs Tick
+        [ onKeyDown <| Decode.map KeyMsg decodeDirection
+        , onAnimationFrameDelta Tick
         ]
